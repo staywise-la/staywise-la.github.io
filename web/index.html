@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StayWise LA</title>
+  <style>
+    :root { --ink:#14213D; --muted:#4A5568; --bg:#F7F5F0; --card:#FFFFFF; --accent:#2A7F80; }
+    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--ink); }
+    header { padding:24px 16px; max-width:960px; margin:0 auto; }
+    h1 { margin:0 0 4px; font-size:28px; }
+    nav { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
+    nav button { border:1px solid #DDD7CA; background:var(--card); padding:8px 14px; border-radius:999px; cursor:pointer; font-size:15px; }
+    nav button[aria-selected="true"] { background:var(--accent); color:#fff; border-color:var(--accent); }
+    main { max-width:960px; margin:0 auto; padding:0 16px 48px; }
+    section { background:var(--card); border:1px solid #E2DED5; border-radius:16px; padding:20px; }
+    section[hidden] { display:none; }
+    p.muted, footer { color:var(--muted); }
+    input { width:100%; box-sizing:border-box; padding:12px 14px; font-size:16px; border:1px solid #CFC8B8; border-radius:12px; }
+    footer { max-width:960px; margin:0 auto; padding:16px; font-size:13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>StayWise LA</h1>
+    <p class="muted">Find a good-value stay in Los Angeles with one sentence. ISYE 6740 project (work in progress).</p>
+    <nav role="tablist">
+      <button role="tab" aria-selected="true" data-tab="search">Search</button>
+      <button role="tab" aria-selected="false" data-tab="price">Price check</button>
+      <button role="tab" aria-selected="false" data-tab="map">Market map</button>
+      <button role="tab" aria-selected="false" data-tab="reviews">Review insights</button>
+    </nav>
+  </header>
+  <main>
+    <section id="search">
+      <input placeholder="e.g. pet-friendly place near Santa Monica under $250" aria-label="Search listings">
+      <p class="muted">Module 1 will load vectors from <code>web/data/</code> and search in the browser.</p>
+    </section>
+    <section id="price" hidden><p class="muted">Module 2: fair price range and good-deal flags.</p></section>
+    <section id="map" hidden><p class="muted">Module 3: neighbourhood market types and regions.</p></section>
+    <section id="reviews" hidden><p class="muted">Module 4: complaint topics and per-listing pros and cons.</p></section>
+  </main>
+  <footer>Data: <a href="https://insideairbnb.com/">Inside Airbnb</a>, Los Angeles. Not affiliated with Airbnb.</footer>
+  <script>
+    document.querySelectorAll("nav button").forEach(btn => btn.addEventListener("click", () => {
+      document.querySelectorAll("nav button").forEach(b => b.setAttribute("aria-selected", b === btn));
+      document.querySelectorAll("main section").forEach(s => s.hidden = s.id !== btn.dataset.tab);
+    }));
+  </script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# Core
+numpy
+pandas
+pyarrow
+scikit-learn
+scipy
+matplotlib
+python-dotenv
+jupyter
+nbstripout
+pytest
+
+# Module 1: search (text + image embeddings)
+sentence-transformers
+rank-bm25
+open-clip-torch
+
+# Module 2: price
+lightgbm
+
+# Module 3: market map
+folium
+
+# Module 4: reviews
+transformers
+
+# Pin exact versions once everyone's setup works:
+#   pip freeze > requirements-lock.txt
