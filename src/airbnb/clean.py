@@ -47,8 +47,10 @@ are added next to them), except the empty and privacy columns dropped in Level 2
 
 LEVEL 2: TEAM DECISIONS (approved, done in this script)
 Principle: keep information in the cleaned data; each module decides how to use it.
-  L2-1  Drop columns that are 100% empty in EVERY quarter (e.g. host_since,
-        host_response_rate, bathrooms). A column with data in any quarter is kept.
+  L2-1  Drop columns that are 100% empty in EVERY quarter (with the current four
+        quarters this is only calendar_updated). A column with data in any quarter is
+        kept: e.g. host_since and host_response_rate are empty after 2025-12-04 and
+        bathrooms is empty in 2026-09-14, but all three are kept.
   L2-2  Privacy: drop reviewer_name, host_name, host_picture_url, host_thumbnail_url
         (still available in data/raw/ if ever needed).
   L2-3  price_outlier flag: price_num < $20 or > $3,000 (<NA> when there is no price).
