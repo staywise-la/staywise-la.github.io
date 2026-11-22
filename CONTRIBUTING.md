@@ -126,7 +126,7 @@ git push -u origin price/lasso-baseline
 ### Step 7: open a Pull Request
 
 1. Go to https://github.com/staywise-la/staywise-la.github.io. GitHub shows a **"Compare & pull request"** button.
-2. Fill in the PR template:
+2. Fill in the PR template (it appears in the description box; the file is `.github/pull_request_template.md`):
    - what you changed
    - which module it is
    - the checklist
@@ -189,7 +189,7 @@ git push -u origin price/lasso-baseline
 You can let an AI do the git steps. Give it clear rules. Copy and adapt these prompts.
 
 **Set up the repo and data:**
-> Clone https://github.com/staywise-la/staywise-la.github.io.git, create a Python venv, install requirements.txt and `pip install -e .`, and run `nbstripout --install`. Then check that `data/raw/` has one folder per quarter with listings.csv.gz (and reviews/calendar/geojson in the latest one), and run `load_listings('latest')` to confirm it loads.
+> Clone https://github.com/staywise-la/staywise-la.github.io.git, create a Python 3.11 venv in `.venv`, install requirements-core.txt (add requirements-ml.txt only if my module needs it) and `pip install -e .`, and run `nbstripout --install`. Then check that `data/raw/` has one folder per quarter with listings.csv.gz (and reviews/calendar/geojson in the latest one), and run `load_listings('latest')` to confirm it loads.
 
 **Start a task:**
 > Switch to main, pull the latest changes, and create a new branch called `price/lasso-baseline`.
