@@ -140,6 +140,19 @@ def load_calendar(snapshot: str = "latest") -> pd.DataFrame:
     return df
 
 
+def load_processed(table: str, snapshots: str | Iterable[str] | None = None) -> pd.DataFrame:
+    """Read a cleaned table written by `python -m airbnb.clean`.
+
+    table     : "listings", "calendar" (partitioned by quarter) or "reviews"
+    snapshots : None = all quarters, or one / several dates like "2026-09-14"
+    """
+    path = config.PROCESSED_DIR / (f"{table}.parquet" if table == "reviews" else table)
+    if snapshots is None or table == "reviews":
+        return pd.read_parquet(path)
+    snaps = [snapshots] if isinstance(snapshots, str) else list(snapshots)
+    return pd.read_parquet(path, filters=[("snapshot_date", "in", snaps)])
+
+
 def load_neighbourhoods_geojson(snapshot: str = "latest") -> dict:
     snap = latest_snapshot() if snapshot == "latest" else snapshot
     with open(config.RAW_DIR / snap / "neighbourhoods.geojson", encoding="utf-8") as f:
