@@ -1,0 +1,15 @@
+# ML: module owners install this when they need it (large; pulls in torch)
+
+# Module 1: search (text + image embeddings)
+sentence-transformers
+rank-bm25
+open-clip-torch
+
+# Module 2: price
+lightgbm
+
+# Module 3: market map
+folium
+
+# Module 4: reviews
+transformers
