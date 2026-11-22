@@ -41,11 +41,11 @@ python -m airbnb.clean
   - `--skip-calendar` and `--skip-reviews` skip the large tables.
 - **Re-running is safe:** each quarter's folder is replaced, never appended to.
 
-**Environment used for the current output (built 2026-11-21):**
+**Environment used for the current output (built 2026-11-22):**
 - Python 3.11.9
 - pandas 3.1.1, pyarrow 26.0.1, numpy 2.4.6
-- Git: branch `data/cleaning-pipeline`, commit `f54b9f872b28bbd5a789b1492780a9281f3d68e3` ("data: add cleaning pipeline to build Parquet tables from raw snapshots"). This commit has the `src/airbnb/clean.py` and `src/airbnb/load.py` used for this output.
-- `src/airbnb/clean.py` git blob `7de18a496d7df4d9d312ff233653f440ea2bae51`. Check that your copy is the same file with `git hash-object src/airbnb/clean.py`.
+- Git: branch `data/cleaning-pipeline`, commit `1a5e5fb40020cfbd5b825de9f0d50c4f12116c9b` ("data: correct L2-1 docstring (only calendar_updated is dropped)"). This commit has the `src/airbnb/clean.py` and `src/airbnb/load.py` used for this output.
+- `src/airbnb/clean.py` git blob `9cc4991844973e4da0353fca9475de1f345fce22`. Check that your copy is the same file with `git hash-object src/airbnb/clean.py`.
 - **Use the blob hash as the reference, not the commit hash.** The blob hash depends only on the file's content, so it stays the same after any merge. The commit hash above will change if the pull request is squash-merged or rebased.
 
 ## Outputs
