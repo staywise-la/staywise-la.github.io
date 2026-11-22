@@ -1,0 +1,11 @@
+# Core: everyone installs this
+numpy
+pandas
+pyarrow
+scipy
+scikit-learn
+matplotlib
+python-dotenv
+jupyter
+nbstripout
+pytest

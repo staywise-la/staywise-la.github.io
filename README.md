@@ -80,14 +80,17 @@ staywise-la.github.io/
    git clone https://github.com/staywise-la/staywise-la.github.io.git
    cd staywise-la.github.io
    ```
-2. Create an environment and install:
+2. Create an environment (Python 3.10+) and install the core packages:
    ```bash
-   python -m venv .venv
+   python3.11 -m venv .venv           # any Python 3.10+ works
    source .venv/bin/activate          # Windows: .venv\Scripts\activate
-   pip install -r requirements.txt
+   pip install -r requirements-core.txt
    pip install -e .                   # makes `import airbnb` work everywhere
    nbstripout --install               # strips notebook outputs before commits
    ```
+   **Module owners:** when your module needs embeddings or models, also run
+   `pip install -r requirements-ml.txt` (large: it pulls in PyTorch).
+   `requirements.txt` installs both files at once.
 3. Download the data from Google Drive into `data/raw/` (see `data/README.md`).
 4. Check it works:
    ```python
@@ -97,6 +100,8 @@ staywise-la.github.io/
    ```
 
 ## How we work together
+
+**New to the team? Read [CONTRIBUTING.md](CONTRIBUTING.md)** for the full step-by-step guide: setup, getting the data, branches, pull requests, and what never goes into git.
 
 - **Branches:**
   - `main` is always working.

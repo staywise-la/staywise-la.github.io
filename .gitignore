@@ -1,8 +1,130 @@
+# =========================================================
+# OS junk (macOS, Windows, Linux)
+# =========================================================
 .DS_Store
+.DS_Store?
+**/.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+.fseventsd
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+desktop.ini
+$RECYCLE.BIN/
+*~
+.directory
+
+# =========================================================
+# Editors / IDEs
+# =========================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.sublime-workspace
+*.sublime-project
+
+# =========================================================
+# Python
+# =========================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# =========================================================
+# Secrets: never commit keys or tokens
+# =========================================================
 .env
 .env.*
+!.env.example
+*.pem
+*.key
+secrets.*
+credentials*.json
+service-account*.json
+# Cloudflare Worker local secrets
+.dev.vars
+.wrangler/
 
+# =========================================================
+# Data: lives on Google Drive, NOT in git
+# =========================================================
 data/**
-!data/**/
 !data/README.md
 !data/**/.gitkeep
+!data/**/
+
+# Data file types anywhere in the repo
+*.csv
+*.csv.gz
+*.tsv
+*.parquet
+*.feather
+*.xlsx
+*.zip
+*.gz
+*.tar
+*.7z
+*.db
+*.sqlite
+
+# Model artifacts and caches
+models/
+checkpoints/
+*.pkl
+*.pickle
+*.joblib
+*.npy
+*.npz
+*.h5
+*.hdf5
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+mlruns/
+wandb/
+.cache/
+hf_cache/
+
+# Downloaded listing photos (keep them under data/, which is ignored)
+data/images/
+
+# =========================================================
+# Web front end (GitHub Pages)
+# Small precomputed files the site needs ARE allowed here.
+# Keep each file small (aim for < 20 MB).
+# =========================================================
+!web/data/
+!web/data/*.json
+!web/data/*.geojson
+!web/data/*.bin
+node_modules/
+.parcel-cache/
+.next/
+.cache-loader/
+
+# =========================================================
+# Reports: allow small summary tables for the write-up
+# =========================================================
+!reports/**/*.csv
