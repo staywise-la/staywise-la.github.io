@@ -237,6 +237,7 @@ New or changed columns only. All other columns are as Inside Airbnb publishes th
   - `price_quote_nights` is missing for 17.5%, 11.0% and 11.5% of listings.
   - The quote length equals `minimum_nights` for 92.7% of priced rows and is never shorter.
   - The median per-night price falls as quotes get longer: $267 at 1 night, $314 at 2, $143 at 30 and $119 at 31.
+- **A quote length doesn't mean there is a price.** 822 (1.8%), 773 (1.8%) and 2,056 (4.7%) listings in 2026-03-16, 2026-06-15 and 2026-09-14 have `price_quote_nights` but no `price_num`. Their quote dates are the *requested* dates, and the quote returned no total or per-night price. In `price_quote_raw`, 1,134 of these 3,651 have `is_available: false`, 1,168 are empty (`is_available: null`), and 1,349 have `is_available: true` but no total. That last group is mostly 2026-09-14, where all 1,313 such quotes are `is_monthly_priced: true`, often with only taxes filled in.
 - **Bookable in the next year:** `is_bookable_next_year` is true for 84.6%, 84.3%, 90.8% and 90.0% of listings (in quarter order). `availability_365` is never missing.
 
 ## Notes for module owners
