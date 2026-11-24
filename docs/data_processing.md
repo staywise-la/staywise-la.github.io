@@ -9,6 +9,24 @@ All numbers come from `data/processed/build_report.json` or from reading the fil
 - It fixes formats, keeps every row, and adds flags. It does not decide what to filter out. Each module makes that choice.
 - **Who uses the output:** all four modules (search, price, market map, reviews) and the website. Everyone reads the same tables through `airbnb.load`.
 
+## Before you use the data: download it from Google Drive
+
+**The data is not in GitHub.** `data/` is ignored by git, so `git pull` gives you the code but none of the data. The tables in `data/processed/`, including `amenity_map.csv` and `listing_attributes/`, are shared on the team Google Drive.
+
+- **Every time this record changes** (a new build date below), download the whole `data/processed/` folder again and replace your local copy. Don't mix old and new files. For example, old listings files don't have `price_quote_nights` or `is_bookable_next_year`, and `listing_attributes/` is new.
+- **Keep the same layout:** put the files in `data/processed/` exactly as they are on Drive, including the `snapshot_date=<date>` folders.
+- **Check that your copy is current:**
+  ```python
+  from airbnb.load import load_processed
+  listings = load_processed("listings")
+  attrs = load_processed("listing_attributes")
+  assert {"price_quote_nights", "is_bookable_next_year"} <= set(listings.columns), "old listings: download data/processed/ again"
+  assert len(listings) == len(attrs) == 179_205, "listings and listing_attributes don't match: download data/processed/ again"
+  ```
+  If `load_processed("listing_attributes")` fails because the folder doesn't exist, your copy is older than the amenity attributes.
+- **Or rebuild it yourself** from `data/raw/` with the commands under "How to reproduce" (about 1.5 minutes).
+- **If you rebuild and share:** upload the whole new `data/processed/` folder to Drive, and update this record in the same pull request as the code change.
+
 ## Inputs
 
 Each quarter is one folder in `data/raw/`, named by the first scrape date (`YYYY-MM-DD`). Every folder has the same four files.
@@ -33,9 +51,11 @@ source .venv/bin/activate
 pip install -r requirements-core.txt
 pip install -e .
 python -m airbnb.clean
+python -m airbnb.amenities all      # amenity attributes; needs the listings from the step above
 ```
 
-- **Run time:** about 1 min 15 s on a MacBook.
+- **Run time:** about 1 min 15 s for `airbnb.clean` and about 15 s for `airbnb.amenities all` on a MacBook.
+- **Amenity steps:** `python -m airbnb.amenities map` rebuilds only `amenity_map.csv`. `python -m airbnb.amenities attributes` rebuilds only `listing_attributes/` from the existing map. `all` runs both and also rewrites `reports/amenity_review.md`.
 - **Options:**
   - `--snapshots 2026-09-14` cleans only the quarters you list.
   - `--skip-calendar` and `--skip-reviews` skip the large tables.
@@ -45,6 +65,7 @@ python -m airbnb.clean
 - Python 3.11.9
 - pandas 3.1.1, pyarrow 26.0.1, numpy 2.4.6
 - `src/airbnb/clean.py` git blob `7704c61230cb2d46570aaf3984d054d2dd9a14e4`. Check that your copy is the same file with `git hash-object src/airbnb/clean.py`.
+- `src/airbnb/amenities.py` git blob `b591211c53218a015d1b56ccd81733b91c28987d`. Check with `git hash-object src/airbnb/amenities.py`.
 - **Use the blob hash as the reference.** It depends only on the file's content, so it stays the same after any merge, squash or rebase. To find the commit, run `git log -1 -- src/airbnb/clean.py`. This record is committed together with that `clean.py`, so it can't contain its own commit hash.
 
 ## Outputs
@@ -58,6 +79,11 @@ Everything is written to `data/processed/`. This folder is ignored by git and sh
 | `reviews.parquet` | None (latest snapshot only) | 1,890,200 | 528.3 MB |
 | `neighbourhoods.geojson` | None (copied from `2026-09-14`) | n/a | 0.7 MB |
 | `build_report.json` | None | n/a | row counts, checks and summary numbers |
+| `amenity_map.csv` | None | 5,425 rows: (spelling, attribute) pairs for 5,221 spellings | 0.4 MB |
+| `listing_attributes/snapshot_date=<date>/part-0.parquet` | One folder per quarter | Same rows as listings: 45,585 · 46,088 · 43,751 · 43,781 · **total 179,205** | 2.4 MB total (0.6 MB per quarter) |
+| `listing_attributes_report.json` | None | n/a | rows and attribute shares per quarter |
+
+- **Review report in git:** `reports/amenity_review.md` is written by `python -m airbnb.amenities all`. It's committed, so every rule change shows up in the pull request.
 
 - **Columns:** listings have 100 columns in each file, plus `snapshot_date` from the folder name, so 101 when loaded. Calendar has 6 columns (7 when loaded, with `snapshot_date`) and reviews has 7.
 
@@ -70,6 +96,10 @@ listings = load_processed("listings")                              # all quarter
 latest   = load_processed("listings", snapshots="2026-09-14")      # one quarter
 two      = load_processed("calendar", snapshots=["2026-06-15", "2026-09-14"])
 reviews  = load_processed("reviews")                               # always the full table
+attrs    = load_processed("listing_attributes")                    # one row per listing per quarter
+
+# Join attributes to listings (one-to-one, no missing rows):
+both = listings.merge(attrs, left_on=["id", "snapshot_date"], right_on=["listing_id", "snapshot_date"])
 ```
 
 - **`snapshots`:** `None` (the default) loads all quarters. You can also pass one date or a list of dates.
@@ -132,6 +162,71 @@ Every step below is in `src/airbnb/clean.py`. No rows are removed. Raw columns a
   - Why: the raw calendar files have different columns in different quarters.
 - **Neighbourhoods:** `neighbourhoods.geojson` is copied from the latest quarter.
 
+## Amenity attributes
+
+`python -m airbnb.amenities all` (in `src/airbnb/amenities.py`) turns the free-text amenity spellings into 30 yes/no attributes. It reads only the cleaned listings. No rows are removed.
+
+**How it works:**
+1. Each amenity is normalized: lower case, plain dashes and apostrophes, single spaces. This gives 10,974 distinct spellings across all quarters.
+2. One rule per attribute (`RULES` in `amenities.py`) decides which spellings belong to it. A rule has a pattern that must match, an optional pattern that must not match, and an optional pattern that must also match.
+3. `OVERRIDES` then adds or removes single spellings by hand.
+4. The result is `amenity_map.csv`: 5,425 (spelling, attribute) pairs covering 5,221 spellings. 204 spellings belong to more than one attribute, for example "beach access - beachfront" counts as both `beach_access` and `waterfront`.
+5. `listing_attributes/` gets one row per listing per quarter: `listing_id`, `snapshot_date`, one boolean column per attribute, and `n_amenities_listed`.
+6. Matched spellings cover 34.9% of all amenity mentions. Common items with no attribute yet, such as "smoke alarm", "hangers" and "microwave", are listed in `reports/amenity_review.md`.
+
+**Amenities are self-reported.** A listing gets an attribute only if the host listed a matching amenity. `False` means "not listed", not "does not have". For example, a listing without `pool` may still have one.
+
+**Attributes and share of listings per quarter** (from `listing_attributes_report.json`):
+
+| Attribute | Meaning | 2025-12-04 | 2026-03-16 | 2026-06-15 | 2026-09-14 |
+|---|---|---|---|---|---|
+| `pool` | Pool at the listing (private or shared) | 22.9% | 23.0% | 22.3% | 22.6% |
+| `pool_private` | Pool marked as private | 3.1% | 3.0% | 3.1% | 3.0% |
+| `hot_tub` | Hot tub (private or shared) | 17.5% | 17.5% | 17.3% | 17.2% |
+| `beach_access` | Beach access or beachfront | 8.7% | 8.7% | 9.0% | 9.0% |
+| `waterfront` | On the water | 2.5% | 2.5% | 2.5% | 2.5% |
+| `outdoor_space` | Patio, balcony or backyard | 52.0% | 51.3% | 53.4% | 52.6% |
+| `bbq_grill` | BBQ grill | 29.8% | 29.7% | 31.1% | 30.5% |
+| `ocean_view` | Ocean, sea, beach or bay view | 2.5% | 2.4% | 2.5% | 2.4% |
+| `city_view` | City or skyline view | 4.8% | 4.6% | 4.7% | 4.7% |
+| `mountain_view` | Mountain, valley or hill view | 5.4% | 5.1% | 5.3% | 5.2% |
+| `pets_allowed` | Pets allowed | 36.3% | 36.4% | 36.4% | 36.6% |
+| `free_parking` | Any free parking (on site or street) | 83.2% | 83.0% | 84.4% | 83.7% |
+| `parking_on_premises` | Parking on the property (free or paid) | 74.6% | 74.1% | 74.3% | 73.5% |
+| `ev_charger` | Electric-vehicle charger | 6.5% | 6.6% | 7.4% | 7.6% |
+| `workspace` | Dedicated workspace | 58.5% | 58.5% | 62.2% | 62.0% |
+| `wifi` | Wifi in the listing | 98.2% | 98.2% | 98.7% | 98.6% |
+| `kitchen` | Indoor kitchen or kitchenette | 90.3% | 90.1% | 90.4% | 90.0% |
+| `washer` | Clothes washer (in unit or building) | 79.4% | 79.5% | 80.0% | 79.5% |
+| `dryer` | Clothes dryer (in unit or building) | 69.2% | 69.0% | 68.8% | 69.2% |
+| `dishwasher` | Dishwasher | 44.4% | 44.4% | 46.7% | 46.9% |
+| `air_conditioning` | Air conditioning | 87.5% | 87.6% | 88.6% | 89.1% |
+| `heating` | Indoor heating | 84.0% | 83.8% | 84.0% | 84.6% |
+| `indoor_fireplace` | Indoor fireplace | 19.9% | 19.6% | 19.6% | 19.7% |
+| `gym` | Gym or exercise equipment on site | 19.2% | 19.4% | 19.4% | 19.8% |
+| `elevator` | Elevator | 13.7% | 13.6% | 12.4% | 12.7% |
+| `self_check_in` | Self check-in | 55.8% | 55.9% | 57.8% | 57.6% |
+| `family_friendly` | Crib, high chair or children's items | 22.9% | 22.5% | 23.0% | 23.0% |
+| `tv` | TV | 88.8% | 88.6% | 89.6% | 89.5% |
+| `long_term_stays` | Long-term stays allowed | 46.9% | 46.6% | 48.3% | 47.8% |
+| `smoking_allowed` | Smoking allowed | 3.8% | 3.8% | 3.2% | 3.2% |
+
+**How to fix a spelling:**
+- **One spelling is in the wrong attribute, or missing from one:** add a line to `OVERRIDES` in `src/airbnb/amenities.py`, in the form `(spelling, attribute, "add" or "remove", why)`. For example:
+  ```python
+  OVERRIDES = [
+      ("lake access", "waterfront", "remove", "access, not waterfront"),
+      ("whirlpool bath", "hot_tub", "add", "jetted tub counts as hot tub"),
+  ]
+  ```
+  **Overrides in use now (14, all `remove`):**
+  - 1 stove spelling removed from `heating`.
+  - "lake access" removed from `waterfront`, because beach access isn't counted as waterfront either (only beachfront is). This lowered `waterfront` from about 2.9% to 2.5% of listings.
+  - 12 sound-system spellings that mention wifi removed from `wifi`, such as "sonos (wifi) sound system". No listing changed, because all of them also list wifi.
+  Write the spelling as it appears in `amenity_map.csv` or `reports/amenity_review.md`: lower case, plain dashes and apostrophes. An unknown attribute name or an action other than `add` / `remove` stops the run with an error.
+- **A whole pattern is wrong** (for example, "pool table" counted as a pool): edit that attribute's rule in `RULES`.
+- **Then:** run `python -m airbnb.amenities all` again, check `reports/amenity_review.md`, and commit `amenities.py` and `reports/amenity_review.md` together. `amenity_map.csv` is rebuilt from the rules, so the same raw data always gives the same map. Share the new `data/processed/` files on Google Drive.
+
 ## Team decisions
 
 Principle: keep the information and add flags. Each module decides what to filter.
@@ -176,7 +271,7 @@ New or changed columns only. All other columns are as Inside Airbnb publishes th
 | `price_outlier` | boolean | Price is outside $20–$3,000 | `price_num < 20` or `> 3000`. Missing when there is no price |
 | `desc_dup_group` | Int64 | Group of listings with the same description | Smallest `id` among listings in the same quarter with identical `description_clean`. Missing if the description is unique |
 | `desc_is_generic` | boolean | Description is an Airbnb default text | 5 or more distinct `host_id` values share the same `description_clean`. Missing when there is no description |
-| `amenities_list` | list of strings | Amenities as a list | Parsed from the JSON text in `amenities`, items trimmed |
+| `amenities_list` | list of strings | Amenities as a list | Parsed from the JSON text in `amenities`, items trimmed. The attributes built from it are in `listing_attributes` (below) |
 | `baths_num` | Float64 | Number of bathrooms | First number in `bathrooms_text`. "Half-bath" = 0.5 |
 | `bath_type` | string | `private`, `shared` or `unspecified` | Keyword in `bathrooms_text`. Missing when it is blank |
 | `price_quote_nights` | Int64 | Length of the stay the price was quoted for, in nights | `price_quote_checkout_date − price_quote_checkin_date` in days. Missing if either date is missing (always missing in 2025-12-04) |
@@ -206,6 +301,15 @@ New or changed columns only. All other columns are as Inside Airbnb publishes th
 | `minimum_nights`, `maximum_nights` | Int64 | Stay limits for that day | Parsed as numbers |
 | `price_num` | Float64 | Price for that day | Parsed like the listings price. Empty in every quarter (see below) |
 
+**Listing attributes** (`listing_attributes/`, 33 columns when loaded)
+
+| Column | Type | Meaning | How it is computed |
+|---|---|---|---|
+| `listing_id` | Int64 | Listing ID | Same as `id` in listings |
+| `snapshot_date` | category (from folder name) | Quarter | From the partition folder. Join on `listing_id` + `snapshot_date` |
+| `pool` … `smoking_allowed` (30 columns) | boolean | The listing lists a matching amenity | True if any of its normalized amenity spellings is mapped to that attribute in `amenity_map.csv`. Never missing. `False` means "not listed" |
+| `n_amenities_listed` | Int64 | Number of amenities the host listed | Length of `amenities_list`. Median 38, range 0–134. 241 rows have 0 |
+
 ## Known data issues
 
 - **2025-12-04 has no prices.** `price` is empty in all 45,585 rows (`has_any_price: false`), and the quarter has none of the five `price_quote_*` columns. Leave this quarter out of price modelling.
@@ -229,7 +333,7 @@ New or changed columns only. All other columns are as Inside Airbnb publishes th
   - 1,890,200 reviews dated 2009-05-26 to 2026-09-15, covering 32,936 listings.
   - 46.2% are from 2024 or later.
   - 3.8% are mostly non-ASCII, and 422 have empty comments.
-- **Amenities:** 9,820 to 10,064 distinct spellings per quarter. 241 listings have an empty list.
+- **Amenities:** 9,820 to 10,064 distinct spellings per quarter (10,974 after normalizing, all quarters together). 241 listings have an empty list, so every attribute is `False` for them. Matched spellings cover 34.9% of amenity mentions.
 - **Bathroom type:** `bath_type` is `unspecified` for 138,259 listings, `private` for 22,293, `shared` for 18,199 and missing for 454.
 - **Price quote length varies.** In the three priced quarters:
   - The most common lengths are 30 nights (28.6%, 31.0%, 31.6% of listings), 1 night (18.2%, 19.9%, 20.0%), 2 nights (14.7%, 16.0%, 15.6%) and 31 nights (8.4%, 8.8%, 8.7%).
@@ -263,7 +367,7 @@ Decisions on how to use the cleaned data. The data keeps every row; these are de
     - 86.6–89.3% of groups fall within 500 m. The median spread is 114–129 m. Inside Airbnb shifts map points slightly, so "same building" can't be confirmed exactly.
     - Listing IDs within a quarter are all different.
   - For search evaluation, treat a duplicate group (`desc_dup_group`) as one answer.
-- **Still open:** amenity standardization (see "Open items").
+- **Amenities:** use `listing_attributes` instead of parsing `amenities_list` yourself. Treat `False` as "not listed", because amenities are self-reported. To change how a spelling is counted, use `OVERRIDES` (see "Amenity attributes").
 
 ## Validation checks
 
@@ -281,7 +385,7 @@ Run on the final output in `data/processed/` on 2026-11-24. All passed.
 
 ## Open items
 
-- **Amenity standardization:** reduce 9,800+ spellings to about 15–20 attributes. The rules still need review.
+- **Amenity rules: one team decision left.** Should `outdoor_space` also count "outdoor dining area", "outdoor furniture", "fire pit", "sun loungers", "hammock", "outdoor kitchen" and "outdoor shower"? Each implies an outdoor area, but not necessarily a patio, balcony or backyard. Adding them would raise `outdoor_space` from 52.3% to 63.4% of listings (+19,791 rows) and change the attribute's meaning, so it's left for the team to decide. The known wrong matches are fixed with `OVERRIDES` (see "Amenity attributes").
 - **Better language detection:** `is_english` is an ASCII rule and could be replaced with a real language detector.
 - **Pandas deprecation:** `clean.py` calls `convert_dtypes(convert_floating=True)`, which pandas 3.1 warns will be removed. It still works now.
 - **Older loaders read raw files:** `load_listings`, `load_reviews` and `load_calendar` in `airbnb.load` read the raw CSVs, not the cleaned tables. Decide whether they should switch to the processed data.

@@ -51,7 +51,9 @@ nbstripout --install               # removes notebook outputs before each commit
 
 ### 1.4 Get the data from Google Drive
 
-**Quickest:** download `data/processed/` (cleaned Parquet tables) and load them with `load_processed("listings")`. You only need `data/raw/` if you want to re-run the cleaning yourself (`python -m airbnb.clean`).
+**Quickest:** download `data/processed/` (cleaned Parquet tables) and load them with `load_processed("listings")`. You only need `data/raw/` if you want to re-run the cleaning yourself (`python -m airbnb.clean` and `python -m airbnb.amenities all`).
+
+> **The data is not in GitHub.** `git pull` updates the code only. When a merged PR changes the processed data (for example new columns, or the amenity attributes in `listing_attributes/`), download the whole `data/processed/` folder from Drive again and replace your copy. Don't mix old and new files. [docs/data_processing.md](docs/data_processing.md) ("Before you use the data") has a short check that tells you whether your copy is current.
 
 
 1. **Open the shared folder:** use the team Google Drive link (pinned in our group chat).
