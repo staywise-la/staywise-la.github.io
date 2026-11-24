@@ -152,6 +152,23 @@ def count_spellings(listings: pd.DataFrame) -> pd.DataFrame:
 # Spellings are matched after normalize() (lower case, plain dashes and apostrophes).
 OVERRIDES: list[tuple[str, str, str, str]] = [
     # ("pool cover", "pool", "remove", "not a pool"),
+    # A stove, not heating.
+    ("fast-heating electric smooth glass top electric stove", "heating", "remove", "a stove, not heating"),
+    # "Access" is not "on the water" (beach access is not counted as waterfront either; only beachfront is).
+    ("lake access", "waterfront", "remove", "access, not waterfront"),
+    # Sound systems that mention wifi: about the speaker, not the internet connection.
+    ('denon avr-x1300w 7.2-channel home theater receiver with wi-fi®, bluetooth®, apple® airplay®, and dolby atmos®. yamaha ns-iw470 natural sound in-wall speaker system. klipsch reference r-120sw powered subwoofer. sound system with bluetooth and aux', "wifi", "remove", "sound system, not internet"),
+    ('sonos (connection via wifi only) sound system', "wifi", "remove", "sound system, not internet"),
+    ('sonos (wifi player), klipsch speakers, denon receiver, sound system', "wifi", "remove", "sound system, not internet"),
+    ('sonos (wifi) sound system', "wifi", "remove", "sound system, not internet"),
+    ('sonos connect via wifi sound system', "wifi", "remove", "sound system, not internet"),
+    ('sonos wifi sound system', "wifi", "remove", "sound system, not internet"),
+    ('sonos, connect through wifi w sonos app sound system', "wifi", "remove", "sound system, not internet"),
+    ('surround sound homepod - these are the high end originals, not the smaller, less effective new ones (will need wifi to connect) bluetooth sound system', "wifi", "remove", "sound system, not internet"),
+    ('surround sound sonos. easy airplay when playing music while connected to the wifi. bluetooth sound system', "wifi", "remove", "sound system, not internet"),
+    ('wifi for your sound system bluetooth sound system', "wifi", "remove", "sound system, not internet"),
+    ('wifi blue tooth bluetooth sound system', "wifi", "remove", "sound system, not internet"),
+    ('sonos wifi connected sound system', "wifi", "remove", "sound system, not internet"),
 ]
 
 

@@ -9,17 +9,27 @@ Use the same folder names as on Google Drive, so the loader finds the files:
 ```
 data/
 ├── raw/
-│   ├── 2025-12-xx/      ← one folder per quarterly snapshot (scrape date)
-│   ├── 2026-03-xx/
-│   ├── 2026-06-xx/
+│   ├── 2025-12-04/      ← one folder per quarterly snapshot (scrape date)
+│   ├── 2026-03-16/
+│   ├── 2026-06-15/
 │   └── 2026-09-14/
 │       ├── listings.csv.gz          (detailed listings, ~27 MB)
 │       ├── reviews.csv.gz           (full review history, ~200 MB)
 │       ├── calendar.csv.gz          (availability next 365 days, no prices)
 │       └── neighbourhoods.geojson   (269 neighbourhood shapes)
 ├── interim/             ← cleaned files you create
-└── processed/           ← model-ready files and embeddings
+└── processed/           ← built by python -m airbnb.clean and python -m airbnb.amenities all
+    ├── listings/            (snapshot_date=<date>/part-0.parquet)
+    ├── calendar/            (snapshot_date=<date>/part-0.parquet)
+    ├── listing_attributes/  (snapshot_date=<date>/part-0.parquet, 30 amenity attributes)
+    ├── reviews.parquet
+    ├── amenity_map.csv
+    ├── neighbourhoods.geojson
+    ├── build_report.json
+    └── listing_attributes_report.json
 ```
+
+**After a data change is merged, download `processed/` from Drive again.** `git pull` doesn't bring data. Replace the whole folder rather than single files. See [docs/data_processing.md](../docs/data_processing.md) ("Before you use the data").
 
 - Only the detailed `.csv.gz` files are needed. The summary `listings.csv` and `reviews.csv` are subsets.
 - Rename each snapshot folder to its scrape date (YYYY-MM-DD) so they sort correctly.
