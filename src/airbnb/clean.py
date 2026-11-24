@@ -44,6 +44,10 @@ are added next to them), except the empty and privacy columns dropped in Level 2
   L1-12 IDs are read as text and stored as Int64 so no digits are lost (Airbnb IDs
         exceed 2^53). Every column gets the same type in every quarter, so
         data/processed/listings reads as one table.
+  L1-13 price_quote_nights = price_quote_checkout_date - price_quote_checkin_date in
+        days (Int64; <NA> if either date is missing). price is a per-night value from
+        a quote of this length.
+  L1-14 is_bookable_next_year = availability_365 > 0 (a flag only; nothing is dropped).
 
 LEVEL 2: TEAM DECISIONS (approved, done in this script)
 Principle: keep information in the cleaned data; each module decides how to use it.
@@ -308,6 +312,15 @@ def clean_listings(raw: pd.DataFrame, snapshot: str) -> tuple[pd.DataFrame, dict
     df = pd.concat([df, parse_bathrooms(df["bathrooms_text"])], axis=1)
     df["is_short_stay"] = (df["minimum_nights"] < config.SHORT_STAY_MAX_NIGHTS).astype("boolean")
 
+    # L1-13 length of the price quote; L1-14 open for booking in the next 365 days
+    if {"price_quote_checkin_date", "price_quote_checkout_date"} <= set(df.columns):
+        nights = (df["price_quote_checkout_date"] - df["price_quote_checkin_date"]).dt.days
+        df["price_quote_nights"] = nights.astype("Int64")
+    else:  # e.g. 2025-12-04 has no price_quote_* columns
+        df["price_quote_nights"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
+    avail = pd.to_numeric(df["availability_365"], errors="coerce")
+    df["is_bookable_next_year"] = (avail > 0).astype("boolean").mask(avail.isna())
+
     # L2-3 price outlier flag (<NA> when there is no price)
     out = (df["price_num"] < config.PRICE_MIN) | (df["price_num"] > config.PRICE_MAX)
     df["price_outlier"] = out.astype("boolean").mask(df["price_num"].isna())
@@ -332,6 +345,11 @@ def clean_listings(raw: pd.DataFrame, snapshot: str) -> tuple[pd.DataFrame, dict
         "share_price_below_20": _share(df["price_num"] < config.PRICE_MIN),
         "share_price_above_3000": _share(df["price_num"] > config.PRICE_MAX),
         "share_min_nights_30_plus": _share(~df["is_short_stay"]),
+        "share_bookable_next_year": _share(df["is_bookable_next_year"]),
+        "price_quote_nights_counts": {
+            ("missing" if pd.isna(k) else str(int(k))): int(v)
+            for k, v in df["price_quote_nights"].value_counts(dropna=False).sort_index().items()
+        },
         "share_duplicate_description": round(float(is_dup.sum() / max(desc.notna().sum(), 1)), 4),
         "duplicate_description_groups": int(df["desc_dup_group"].nunique()),
         "share_generic_description": _share(df["desc_is_generic"].fillna(False)),
