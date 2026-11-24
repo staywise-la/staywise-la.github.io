@@ -41,12 +41,11 @@ python -m airbnb.clean
   - `--skip-calendar` and `--skip-reviews` skip the large tables.
 - **Re-running is safe:** each quarter's folder is replaced, never appended to.
 
-**Environment used for the current output (built 2026-11-22):**
+**Environment used for the current output (built 2026-11-24):**
 - Python 3.11.9
 - pandas 3.1.1, pyarrow 26.0.1, numpy 2.4.6
-- Git: branch `data/cleaning-pipeline`, commit `1a5e5fb40020cfbd5b825de9f0d50c4f12116c9b` ("data: correct L2-1 docstring (only calendar_updated is dropped)"). This commit has the `src/airbnb/clean.py` and `src/airbnb/load.py` used for this output.
-- `src/airbnb/clean.py` git blob `9cc4991844973e4da0353fca9475de1f345fce22`. Check that your copy is the same file with `git hash-object src/airbnb/clean.py`.
-- **Use the blob hash as the reference, not the commit hash.** The blob hash depends only on the file's content, so it stays the same after any merge. The commit hash above will change if the pull request is squash-merged or rebased.
+- `src/airbnb/clean.py` git blob `7704c61230cb2d46570aaf3984d054d2dd9a14e4`. Check that your copy is the same file with `git hash-object src/airbnb/clean.py`.
+- **Use the blob hash as the reference.** It depends only on the file's content, so it stays the same after any merge, squash or rebase. To find the commit, run `git log -1 -- src/airbnb/clean.py`. This record is committed together with that `clean.py`, so it can't contain its own commit hash.
 
 ## Outputs
 
@@ -54,13 +53,13 @@ Everything is written to `data/processed/`. This folder is ignored by git and sh
 
 | Path | Partitioning | Rows | Size |
 |---|---|---|---|
-| `listings/snapshot_date=<date>/part-0.parquet` | One folder per quarter | 2025-12-04: 45,585 · 2026-03-16: 46,088 · 2026-06-15: 43,751 · 2026-09-14: 43,781 · **total 179,205** | 232.1 MB total (57–60 MB per quarter) |
+| `listings/snapshot_date=<date>/part-0.parquet` | One folder per quarter | 2025-12-04: 45,585 · 2026-03-16: 46,088 · 2026-06-15: 43,751 · 2026-09-14: 43,781 · **total 179,205** | 232.3 MB total (57–60 MB per quarter) |
 | `calendar/snapshot_date=<date>/part-0.parquet` | One folder per quarter | 2025-12-04: 16,638,552 · 2026-03-16: 16,822,146 · 2026-06-15: 16,035,198 · 2026-09-14: 15,980,081 · **total 65,475,977** | 30.5 MB total (7–8 MB per quarter) |
 | `reviews.parquet` | None (latest snapshot only) | 1,890,200 | 528.3 MB |
 | `neighbourhoods.geojson` | None (copied from `2026-09-14`) | n/a | 0.7 MB |
 | `build_report.json` | None | n/a | row counts, checks and summary numbers |
 
-- **Columns:** listings have 98 columns in each file, plus `snapshot_date` from the folder name, so 99 when loaded. Calendar has 6 columns (7 when loaded, with `snapshot_date`) and reviews has 7.
+- **Columns:** listings have 100 columns in each file, plus `snapshot_date` from the folder name, so 101 when loaded. Calendar has 6 columns (7 when loaded, with `snapshot_date`) and reviews has 7.
 
 **Loading with `load_processed()`:**
 
@@ -100,6 +99,10 @@ Every step below is in `src/airbnb/clean.py`. No rows are removed. Raw columns a
   - Why: easier to search and count.
 - **Bathrooms:** `bathrooms_text` becomes `baths_num` (a number, with "Half-bath" counted as 0.5) and `bath_type` (`private` / `shared` / `unspecified`).
   - Why: `bathrooms_text` mixes a number and a type in one field.
+- **Quote length:** `price_quote_nights` is `price_quote_checkout_date` minus `price_quote_checkin_date`, in days. It is missing if either date is missing.
+  - Why: `price` is a per-night value from a quote, and quote length changes the per-night price.
+- **Bookable flag:** `is_bookable_next_year` is true when `availability_365 > 0`. It is a flag only; no rows are removed.
+  - Why: search and the website should hide listings that can't be booked in the next year.
 - **Exact IDs:**
   - Columns covered:
     - listings: `id`, `scrape_id`, `host_id`, `host_profile_id`
@@ -176,6 +179,8 @@ New or changed columns only. All other columns are as Inside Airbnb publishes th
 | `amenities_list` | list of strings | Amenities as a list | Parsed from the JSON text in `amenities`, items trimmed |
 | `baths_num` | Float64 | Number of bathrooms | First number in `bathrooms_text`. "Half-bath" = 0.5 |
 | `bath_type` | string | `private`, `shared` or `unspecified` | Keyword in `bathrooms_text`. Missing when it is blank |
+| `price_quote_nights` | Int64 | Length of the stay the price was quoted for, in nights | `price_quote_checkout_date − price_quote_checkin_date` in days. Missing if either date is missing (always missing in 2025-12-04) |
+| `is_bookable_next_year` | boolean | Listing has at least one open day in the next 365 days | `availability_365 > 0` |
 | `id`, `scrape_id`, `host_id`, `host_profile_id` | Int64 | IDs | Read as text, stored exactly |
 | `host_is_superhost`, `host_has_profile_pic`, `host_identity_verified`, `has_availability`, `instant_bookable` | boolean | Yes/no fields | `t` → true, `f` → false |
 | `host_response_rate`, `host_acceptance_rate` | Float64 | Rates as fractions | `"95%"` → 0.95 |
@@ -226,13 +231,46 @@ New or changed columns only. All other columns are as Inside Airbnb publishes th
   - 3.8% are mostly non-ASCII, and 422 have empty comments.
 - **Amenities:** 9,820 to 10,064 distinct spellings per quarter. 241 listings have an empty list.
 - **Bathroom type:** `bath_type` is `unspecified` for 138,259 listings, `private` for 22,293, `shared` for 18,199 and missing for 454.
+- **Price quote length varies.** In the three priced quarters:
+  - The most common lengths are 30 nights (28.6%, 31.0%, 31.6% of listings), 1 night (18.2%, 19.9%, 20.0%), 2 nights (14.7%, 16.0%, 15.6%) and 31 nights (8.4%, 8.8%, 8.7%).
+  - 1, 2 and 30 nights together make up 75–76% of quotes. Lengths range from 1 to 365 nights.
+  - `price_quote_nights` is missing for 17.5%, 11.0% and 11.5% of listings.
+  - The quote length equals `minimum_nights` for 92.7% of priced rows and is never shorter.
+  - The median per-night price falls as quotes get longer: $267 at 1 night, $314 at 2, $143 at 30 and $119 at 31.
+- **A quote length doesn't mean there is a price.** 822 (1.8%), 773 (1.8%) and 2,056 (4.7%) listings in 2026-03-16, 2026-06-15 and 2026-09-14 have `price_quote_nights` but no `price_num`. Their quote dates are the *requested* dates, and the quote returned no total or per-night price. In `price_quote_raw`, 1,134 of these 3,651 have `is_available: false`, 1,168 are empty (`is_available: null`), and 1,349 have `is_available: true` but no total. That last group is mostly 2026-09-14, where all 1,313 such quotes are `is_monthly_priced: true`, often with only taxes filled in.
+- **Bookable in the next year:** `is_bookable_next_year` is true for 84.6%, 84.3%, 90.8% and 90.0% of listings (in quarter order). `availability_365` is never missing.
+
+## Notes for module owners
+
+Decisions on how to use the cleaned data. The data keeps every row; these are defaults for each module.
+
+- **Price:**
+  - All quarters are provided. The module owner decides which ones to use.
+  - 2025-12-04 has no prices (see "Known data issues").
+  - `price` / `price_num` is a per-night value from a quote, and the quote length varies. It is often 1, 2 or 30 nights, and longer quotes may include weekly or monthly discounts. Consider `price_quote_nights` as a feature or a filter.
+  - If you use several quarters, split train and test by listing `id`, so the same listing never appears in both.
+- **Search and website:**
+  - Show only `is_bookable_next_year == True` by default.
+  - Keep all rows in the data.
+- **Reviews:**
+  - Reviews are not translated.
+  - About 4% are non-English (71,554 of 1,889,778 non-empty comments, 3.8%). Filter with `is_english` if needed.
+  - `is_english` is a rough rule (at least 97% ASCII characters), not a language detector.
+- **Duplicate descriptions:**
+  - `desc_is_generic` marks Airbnb template text used by 5 or more different hosts.
+  - The other duplicates are mostly the same host copying text across different units nearby, not the same listing:
+    - In each quarter, 77.5–78.8% of these groups have a single host.
+    - 86.6–89.3% of groups fall within 500 m. The median spread is 114–129 m. Inside Airbnb shifts map points slightly, so "same building" can't be confirmed exactly.
+    - Listing IDs within a quarter are all different.
+  - For search evaluation, treat a duplicate group (`desc_dup_group`) as one answer.
+- **Still open:** amenity standardization (see "Open items").
 
 ## Validation checks
 
-Run on the final output in `data/processed/` on 2026-11-21. All passed.
+Run on the final output in `data/processed/` on 2026-11-24. All passed.
 
 - **Rows per quarter:** listings 45,585 / 46,088 / 43,751 / 43,781, which equals the raw `listings.csv.gz` row counts and `build_report.json`. Calendar rows also equal the raw files.
-- **Identical schemas:** `pyarrow.dataset` shows the 4 listings files have identical physical schemas (98 columns each), and so do the 4 calendar files (6 columns each).
+- **Identical schemas:** `pyarrow.dataset` shows the 4 listings files have identical physical schemas (100 columns each), and so do the 4 calendar files (6 columns each).
 - **Reads as one table:** listings give 179,205 rows and calendar 65,475,977 rows.
 - **IDs match raw exactly:** for every quarter, `id`, `host_id` and `host_profile_id` were read from `listings.csv.gz` as text and compared with the processed table. All 179,205 rows matched, and blank raw cells are missing in the processed table.
 - **Scrape dates:** `snapshot_matches_last_scraped` is true for all four quarters.
